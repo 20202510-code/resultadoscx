@@ -57,7 +57,7 @@ function parseSheet(aoa){
 const S=(rows,n,r)=>{let a=0,b=0,k=0;for(const x of rows)if(x[n]!=null&&x[r]!=null){a+=x[n];b+=x[r];k++}return {n:k?a:null,r:k?b:null,p:k&&a>0?b/a:null}};
 const group=(rows,keys)=>{const m=new Map();rows.forEach(r=>{const k=keys.map(x=>r[x]).join('|');if(!m.has(k))m.set(k,{rows:[]});const g=m.get(k);keys.forEach(x=>g[x]=r[x]);g.rows.push(r)});return[...m.values()].map(g=>({...g,q1:S(g.rows,'n1','r1'),q2:S(g.rows,'n2','r2'),m:S(g.rows,'nm','rm')}))};
 const sem=(p,t)=>{if(p==null)return null;const[g,y]=t==='CALLBACK'?[.7,.5]:[.9,.7];return p>=g?'g':p>=y?'y':'r'};
-const fp=p=>p==null?'—':(Math.round(p*1000)/10).toString().replace('.',',')+'%';
+const fp=p=>p==null?'—':Math.round(p*100)+'%';
 const fn=v=>v==null?'—':v.toLocaleString('es-PE');
 const uniq=(a,f)=>[...new Set(a.map(f).filter(Boolean))];
 const match=(r,f,skip=[])=>['y','m','c','h','t'].every(k=>skip.includes(k)||!f[k]||String(r[k])===f[k]);
