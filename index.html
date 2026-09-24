@@ -31,7 +31,7 @@ const REQ={y:['ANO'],m:['MES'],t:['TIPO DE CX','TIPO CX'],c:['CENTRO'],h:['HABIL
 const LBL={y:'AÑO',m:'MES',t:'TIPO CX',c:'CENTRO',h:'HABILIDAD',k:'CANAL',n1:'Q1 A REALIZAR',r1:'Q1 REALIZADO',n2:'Q2 A REALIZAR',r2:'Q2 REALIZADO',nm:'MENSUAL A REALIZAR',rm:'MENSUAL REALIZADO'};
 const MESES=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','SET','OCT','NOV','DIC'];
 const C={g:{bar:'#00e39a',tx:'#008a5e'},y:{bar:'#f5b700',tx:'#946c00'},r:{bar:'#fd3d01',tx:'#c73000'}};
-
+ 
 /* ---------- Datos ---------- */
 const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim().replace(/\s+/g,' ');
 const num=v=>{if(v==null||v==='')return null;const x=typeof v==='number'?v:parseFloat(String(v).replace(',','.'));return isFinite(x)?x:null};
@@ -52,7 +52,7 @@ function parseSheet(aoa){
   if(!rows.length)throw new Error('El archivo no contiene registros.');
   return rows;
 }
-
+ 
 /* ---------- Cálculo: suma realizado / suma a realizar (nunca promedio de %) ---------- */
 const S=(rows,n,r)=>{let a=0,b=0,k=0;for(const x of rows)if(x[n]!=null&&x[r]!=null){a+=x[n];b+=x[r];k++}return {n:k?a:null,r:k?b:null,p:k&&a>0?b/a:null}};
 const group=(rows,keys)=>{const m=new Map();rows.forEach(r=>{const k=keys.map(x=>r[x]).join('|');if(!m.has(k))m.set(k,{rows:[]});const g=m.get(k);keys.forEach(x=>g[x]=r[x]);g.rows.push(r)});return[...m.values()].map(g=>({...g,q1:S(g.rows,'n1','r1'),q2:S(g.rows,'n2','r2'),m:S(g.rows,'nm','rm')}))};
@@ -61,7 +61,7 @@ const fp=p=>p==null?'—':(Math.round(p*1000)/10).toString().replace('.',',')+'%
 const fn=v=>v==null?'—':v.toLocaleString('es-PE');
 const uniq=(a,f)=>[...new Set(a.map(f).filter(Boolean))];
 const match=(r,f,skip=[])=>['y','m','c','h','t'].every(k=>skip.includes(k)||!f[k]||String(r[k])===f[k]);
-
+ 
 /* ---------- UI base ---------- */
 const Pct=({p,t,cls=''})=>{const s=sem(p,t),c=s&&C[s];return <span className={'inline-flex items-center gap-1.5 font-bold tabular-nums '+cls} style={{color:c?c.tx:'#94a3b8'}}>{c&&<i className="w-2 h-2 rounded-full inline-block" style={{background:c.bar}}/>}{fp(p)}</span>};
 const Bar=({p,t,h=6})=>{const s=sem(p,t);return <div className="rounded-full bg-slate-100 overflow-hidden" style={{height:h}}><div className="h-full rounded-full" style={{width:p==null?0:Math.min(100,p*100)+'%',background:s?C[s].bar:'#cbd5e1'}}/></div>};
@@ -70,7 +70,7 @@ const Title=({children,right})=><div className="flex flex-wrap items-center just
 const Seg=({v,set,opts})=><div className="inline-flex p-1 rounded-xl bg-slate-100 text-sm font-semibold">{opts.map(([k,l])=><button key={k} onClick={()=>set(k)} className={'px-3 py-1.5 rounded-lg transition '+(v===k?'bg-white text-entel shadow-sm':'text-slate-500 hover:text-slate-800')}>{l}</button>)}</div>;
 const ICON={'CALLBACK':'M4 5a2 2 0 012-2h2l1.5 4-2 1.2a11 11 0 005.3 5.3L14 11.5 18 13v2a2 2 0 01-2 2C9.4 17 3 10.6 3 4z','COACHING GRUPAL':'M9 8a3 3 0 100-6 3 3 0 000 6zm7 1a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 17c0-3 2.7-5 6-5s6 2 6 5zm11-4.5c2.6 0 5 1.6 5 4.5h-3.5','COACHING INDIVIDUAL':'M10 9a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM3.5 18c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6z'};
 const NOM={'CALLBACK':'Callback','COACHING GRUPAL':'Coaching grupal','COACHING INDIVIDUAL':'Coaching individual'};
-
+ 
 /* ---------- Resumen ---------- */
 function KpiCard({t,rows}){
   const g=useMemo(()=>({q1:S(rows,'n1','r1'),q2:S(rows,'n2','r2'),m:S(rows,'nm','rm')}),[rows]);
@@ -84,7 +84,7 @@ function KpiCard({t,rows}){
     <div className="flex justify-between text-sm border-t border-slate-100 pt-3"><span className="text-slate-500">Realizado <b className="text-slate-900 tabular-nums">{fn(g.m.r)}</b></span><span className="text-slate-500">Meta <b className="text-slate-900 tabular-nums">{fn(g.m.n)}</b></span></div>
   </div>;
 }
-
+ 
 /* ---------- Cumplimiento por centro ---------- */
 function CentrosChart({rows}){
   const [t,setT]=useState('COACHING GRUPAL'),[mt,setMt]=useState('m');
@@ -104,7 +104,7 @@ function CentrosChart({rows}){
       <div className="text-xs text-slate-400 pt-1">La línea punteada marca el umbral verde ({thr}%).</div></div>}
   </div>;
 }
-
+ 
 /* ---------- Detalle por habilidad ---------- */
 function Habilidades({rows}){
   const [c,setC]=useState(''),[k,setK]=useState(''),[t,setT]=useState('COACHING GRUPAL');
@@ -129,7 +129,7 @@ function Habilidades({rows}){
       <td className="px-3 text-right tabular-nums">{fn(d.m.n)}</td><td className="px-3 text-right tabular-nums">{fn(d.m.r)}</td></tr>)}</tbody></table></div>}
   </div>;
 }
-
+ 
 /* ---------- Tabla completa ---------- */
 const COLS=[['c','Centro',g=>g.c,0],['k','Canal',g=>g.k||'—',0],['h','Habilidad',g=>g.h,0],['t','Tipo CX',g=>NOM[g.t]||g.t,0],['n1','Q1 a realizar',g=>g.q1.n],['r1','Q1 realizado',g=>g.q1.r],['p1','% Q1',g=>g.q1.p,1],['n2','Q2 a realizar',g=>g.q2.n],['r2','Q2 realizado',g=>g.q2.r],['p2','% Q2',g=>g.q2.p,1],['nm','Mensual a realizar',g=>g.m.n],['rm','Mensual realizado',g=>g.m.r],['pm','% Mensual',g=>g.m.p,1]];
 function Tabla({rows}){
@@ -150,7 +150,7 @@ function Tabla({rows}){
     <div className="text-xs text-slate-400 mt-2">{data.length} filas · Los guiones indican que no hay información o que el indicador no aplica.</div>
   </div>;
 }
-
+ 
 /* ---------- Avance Q1 + Q2 (tabla resumen) ---------- */
 const TCOLS=[['CALLBACK','m'],['COACHING INDIVIDUAL','q1'],['COACHING INDIVIDUAL','q2'],['COACHING INDIVIDUAL','m'],['COACHING GRUPAL','q1'],['COACHING GRUPAL','q2'],['COACHING GRUPAL','m']];
 const calc=rs=>TCOLS.map(([t,k])=>{const x=rs.filter(r=>r.t===t);return k==='m'?S(x,'nm','rm'):k==='q1'?S(x,'n1','r1'):S(x,'n2','r2')});
@@ -195,7 +195,7 @@ function Avance({rows}){
     </div>
   </div>;
 }
-
+ 
 /* ---------- App ---------- */
 function App(){
   const [rows,setRows]=useState(()=>fromRaw(RAW.rows)),[err,setErr]=useState(''),[status,setStatus]=useState('cargando'),[upd,setUpd]=useState(null);
