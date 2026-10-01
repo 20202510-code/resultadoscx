@@ -1,0 +1,622 @@
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema CX | Iniciativas</title>
+
+  <!-- Librerías vía CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --entel-blue:#005BFD;
+      --entel-orange:#FD3D01;
+      --entel-mint:#00DFA2;
+      --ink:#172033;
+      --muted:#667085;
+      --line:#E7EAF0;
+      --soft:#F5F7FB;
+      --white:#FFFFFF;
+      --danger:#D92D20;
+      --warning:#F79009;
+      --success:#039855;
+      --shadow:0 8px 24px rgba(16,24,40,.06);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--soft);color:var(--ink)}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .topbar{height:68px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;z-index:20}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800}
+    .brand-mark{width:34px;height:34px;border-radius:10px;background:var(--entel-blue);display:grid;place-items:center;color:#fff}
+    .nav{display:flex;gap:8px;flex-wrap:wrap}
+    .nav a{color:var(--muted);text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:650}
+    .nav a.active{background:#EEF4FF;color:var(--entel-blue)}
+    .page{max-width:1440px;margin:0 auto;padding:36px 32px 64px}
+    .hero{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:26px}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--entel-blue);text-transform:uppercase}
+    h1{font-size:36px;line-height:1.1;margin:8px 0}
+    h2{font-size:23px;margin:0 0 6px}
+    h3{margin:0}
+    .sub{color:var(--muted);margin:0;max-width:760px}
+    .status{padding:9px 12px;border:1px solid var(--line);background:#fff;border-radius:999px;color:var(--muted);font-size:13px}
+    .status.ok{color:var(--success);border-color:#ABEFC6;background:#ECFDF3}
+    .status.error{color:var(--danger);border-color:#FECDCA;background:#FEF3F2}
+    .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:28px}
+    .kpi{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+    .kpi-label{color:var(--muted);font-size:13px;font-weight:650}
+    .kpi-value{font-size:30px;font-weight:850;margin-top:7px}
+    .kpi-detail{font-size:12px;color:var(--muted);margin-top:4px}
+    .section{margin-top:30px}
+    .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}
+    .section-head p{margin:0;color:var(--muted);font-size:14px}
+    .featured{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .initiative-card{padding:18px;display:flex;flex-direction:column;gap:13px;min-height:250px}
+    .card-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:800;background:#F2F4F7;color:#475467}
+    .badge.n2{background:#EEF4FF;color:var(--entel-blue)}
+    .badge.high{background:#FFF1ED;color:var(--entel-orange)}
+    .badge.good{background:#ECFDF3;color:var(--success)}
+    .badge.warn{background:#FFFAEB;color:#B54708}
+    .initiative-title{font-size:17px;font-weight:800;line-height:1.3}
+    .initiative-meta{display:flex;flex-wrap:wrap;gap:7px}
+    .meta-pill{background:#F8FAFC;border:1px solid #EAECF0;padding:6px 8px;border-radius:8px;font-size:11px;color:#475467}
+    .snippet{font-size:13px;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .card-actions{margin-top:auto;display:flex;justify-content:space-between;align-items:center}
+    .link-btn{border:0;background:none;color:var(--entel-blue);font-weight:800;padding:5px 0}
+    .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .chart-card{padding:18px;min-height:390px}
+    .chart-wrap{height:310px;margin-top:16px}
+    .filters{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+    .filter-grid{display:grid;grid-template-columns:2fr repeat(6,1fr);gap:10px}
+    input,select,textarea{width:100%;border:1px solid #D0D5DD;border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;outline:none}
+    input:focus,select:focus,textarea:focus{border-color:var(--entel-blue);box-shadow:0 0 0 3px rgba(0,91,253,.10)}
+    .filter-actions{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+    .results-count{font-size:13px;color:var(--muted)}
+    .btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800}
+    .btn-primary{background:var(--entel-blue);color:#fff}
+    .btn-secondary{background:#F2F4F7;color:#344054}
+    .initiatives-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+    .empty{background:#fff;border:1px dashed #D0D5DD;border-radius:var(--radius);padding:30px;text-align:center;color:var(--muted);grid-column:1/-1}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:50;display:none;justify-content:flex-end}
+    .modal-backdrop.open{display:flex}
+    .drawer{width:min(680px,100%);height:100%;overflow:auto;background:#fff;padding:28px;box-shadow:-20px 0 40px rgba(16,24,40,.16)}
+    .drawer-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:18px}
+    .close{border:0;background:#F2F4F7;border-radius:10px;width:38px;height:38px;font-size:20px}
+    .detail-section{padding:20px 0;border-bottom:1px solid var(--line)}
+    .detail-section h3{font-size:15px;margin-bottom:10px}
+    .detail-section p{font-size:14px;line-height:1.6;color:#475467;white-space:pre-wrap}
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .detail-item{background:#F8FAFC;border-radius:10px;padding:11px}
+    .detail-item span{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+    .detail-item strong{font-size:13px}
+    .comment-placeholder{background:#F8FAFC;border-radius:12px;padding:14px;color:var(--muted);font-size:13px;margin-bottom:12px}
+    .comment-options{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 14px}
+    .comment-options label{font-size:12px;color:#475467;display:flex;align-items:center;gap:5px}
+    .comment-options input{width:auto}
+    .notice{font-size:11px;color:var(--muted);margin-top:8px}
+    @media(max-width:1100px){
+      .kpis{grid-template-columns:repeat(3,1fr)}
+      .featured,.initiatives-grid{grid-template-columns:repeat(2,1fr)}
+      .filter-grid{grid-template-columns:repeat(3,1fr)}
+    }
+    @media(max-width:800px){
+      .topbar{height:auto;padding:14px 18px;align-items:flex-start;gap:10px;flex-direction:column}
+      .page{padding:26px 18px 50px}
+      .hero{align-items:flex-start;flex-direction:column}
+      .kpis{grid-template-columns:repeat(2,1fr)}
+      .charts{grid-template-columns:1fr}
+      .featured,.initiatives-grid{grid-template-columns:1fr}
+      .filter-grid{grid-template-columns:1fr 1fr}
+    }
+    @media(max-width:520px){
+      .kpis,.filter-grid{grid-template-columns:1fr}
+      h1{font-size:30px}
+    }
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">CX</div><span>Sistema CX</span></div>
+  <nav class="nav">
+    <a href="index.html">Inicio</a>
+    <a href="callback.html">Callback</a>
+    <a href="coaching.html">Coaching</a>
+    <a class="active" href="iniciativas.html">Iniciativas</a>
+  </nav>
+</header>
+<main class="page">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Gestión inteligente de iniciativas</div>
+      <h1>Iniciativas CX</h1>
+      <p class="sub">Ideas que transforman oportunidades en mejoras para nuestros clientes.</p>
+    </div>
+    <div id="dataStatus" class="status">Cargando datos…</div>
+  </section>
+
+  <section class="kpis">
+    <article class="kpi"><div class="kpi-label">Iniciativas recibidas</div><div id="kpiTotal" class="kpi-value">—</div><div id="kpiLevels" class="kpi-detail">—</div></article>
+    <article class="kpi"><div class="kpi-label">Iniciativas válidas</div><div id="kpiValid" class="kpi-value">—</div><div class="kpi-detail">Con evaluación/recomendación registrada</div></article>
+    <article class="kpi"><div class="kpi-label">Foco Venta</div><div id="kpiSales" class="kpi-value">—</div><div class="kpi-detail">Impacto comercial identificado</div></article>
+    <article class="kpi"><div class="kpi-label">Priorizadas</div><div id="kpiPriority" class="kpi-value">—</div><div class="kpi-detail">Alta prioridad / escalar</div></article>
+    <article class="kpi"><div class="kpi-label">En seguimiento</div><div id="kpiTracking" class="kpi-value">—</div><div class="kpi-detail">Gestión activa</div></article>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div><h2>Iniciativas destacadas</h2><p>Oportunidades con potencial de impacto y viabilidad operacional.</p></div>
+    </div>
+    <div id="featuredGrid" class="featured"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div><h2>Participación de iniciativas</h2><p>Volumen registrado por centro y plataforma.</p></div>
+    </div>
+    <div class="charts">
+      <article class="card chart-card">
+        <h3>Iniciativas ingresadas por centro</h3>
+        <p class="sub">Comparativo N1 vs. N2.</p>
+        <div class="chart-wrap"><canvas id="centerChart"></canvas></div>
+      </article>
+      <article class="card chart-card">
+        <h3>Iniciativas por plataforma</h3>
+        <p class="sub">Volumen total por plataforma, sin comparar N1 y N2.</p>
+        <div class="chart-wrap"><canvas id="skillChart"></canvas></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div><h2>Explorar iniciativas</h2><p>Filtra la cartera y revisa el análisis de cada propuesta.</p></div>
+    </div>
+    <div class="filters">
+      <div class="filter-grid">
+        <input id="search" placeholder="Buscar iniciativa o propuesta…" />
+        <select id="levelFilter"><option value="">Todos los niveles</option></select>
+        <select id="centerFilter"><option value="">Todos los centros</option></select>
+        <select id="skillFilter"><option value="">Todas las plataformas</option></select>
+        <select id="kpiFilter"><option value="">Todos los KPI</option></select>
+        <select id="bankFilter"><option value="">Todos los bancos</option></select>
+        <select id="priorityFilter"><option value="">Todas las prioridades</option></select>
+        <select id="themeFilter"><option value="">Todos los temas web</option></select>
+      </div>
+      <div class="filter-actions">
+        <span id="resultsCount" class="results-count"></span>
+        <button id="clearFilters" class="btn btn-secondary">Limpiar filtros</button>
+      </div>
+    </div>
+    <div id="initiativesGrid" class="initiatives-grid"></div>
+  </section>
+</main>
+
+<div id="drawerBackdrop" class="modal-backdrop">
+  <aside class="drawer">
+    <div class="drawer-head">
+      <div>
+        <div id="detailBadges" class="initiative-meta"></div>
+        <h2 id="detailTitle" style="margin-top:12px"></h2>
+      </div>
+      <button id="closeDrawer" class="close" aria-label="Cerrar">×</button>
+    </div>
+    <div id="drawerContent"></div>
+  </aside>
+</div>
+
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWlTAKHg8CjCWSa9Ss7BpjP0AjcmKLjLr_daFEDFRQrHKfkxTczhRXJU4PRrmALph8GvwBqZx5GnYm/pub?gid=1585936033&single=true&output=csv";
+let initiatives = [];
+let filteredInitiatives = [];
+let centerChart, skillChart;
+
+/* --------- Normalización flexible de encabezados --------- */
+const normalize = (v="") => String(v ?? "").trim();
+const normKey = (v="") => normalize(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+const low = (v="") => normalize(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+
+const FIELD_ALIASES = {
+  id:["ID","ID INICIATIVA","CODIGO","CÓDIGO","NRO","N°"],
+  level:["NIVEL","N1/N2","TIPO NIVEL","TIPO"],
+  center:["CENTRO","CENTRO DE ATENCION","CENTRO DE ATENCIÓN","SITE"],
+  skill:["PLATAFORMA","HABILIDAD","HABILIDAD EJECUTIVO","HABILIDAD EJECUTIVA","SKILL"],
+  title:["INICIATIVA","NOMBRE INICIATIVA","TITULO","TÍTULO","NOMBRE"],
+  problem:["PROBLEMA","PROBLEMATICA","PROBLEMÁTICA","PROBLEMA IDENTIFICADO","DETALLE PROBLEMA"],
+  proposal:["PROPUESTA","PROPUESTA DE MEJORA","SOLUCION","SOLUCIÓN","DESCRIPCION PROPUESTA","DESCRIPCIÓN PROPUESTA"],
+  kpi:["KPI","AGENTE KPI","AGENTE_KPI","IMPACTO KPI"],
+  sales:["FOCO VENTA","FOCO_VENTA","VENTA","IMPACTO VENTA","AGENTE FOCO VENTA"],
+  bank:["BANCO","BANCO DE OPORTUNIDADES","BANCO_OPORTUNIDADES","AGENTE BANCO OPORTUNIDADES","AGENTE_BANCO_OPORTUNIDADES"],
+  valid:["ES INICIATIVA","ES_INICIATIVA","VALIDA","VÁLIDA","INICIATIVA VALIDA","INICIATIVA VÁLIDA"],
+  discard:["MOTIVO DESCARTE","MOTIVO_DESCARTE","MOTIVO","MOTIVO NO INICIATIVA"],
+  viability:["VIABILIDAD","VIABILIDAD OPERACIONAL","AGENTE VIABILIDAD","AGENTE_VIABILIDAD"],
+  evidence:["EVIDENCIA","AGENTE EVIDENCIA","AGENTE_EVIDENCIA"],
+  complexity:["COMPLEJIDAD","AGENTE COMPLEJIDAD","AGENTE_COMPLEJIDAD"],
+  horizon:["HORIZONTE","PLAZO","TEMPORALIDAD"],
+  priority:["PRIORIDAD","AGENTE PRIORIDAD","AGENTE_PRIORIDAD"],
+  state:["ESTADO","AGENTE ESTADO","AGENTE_ESTADO"],
+  recommendation:["RECOMENDACION","RECOMENDACIÓN","AGENTE RECOMENDACION","AGENTE_RECOMENDACION"],
+  justification:["JUSTIFICACION","JUSTIFICACIÓN","AGENTE JUSTIFICACION","AGENTE_JUSTIFICACION","SUSTENTO"],
+  featured:["DESTACADA","DESTACADO","DESTACAR WEB","DESTACAR_WEB","SHORTLIST WEB","SHORTLIST_WEB"],
+  validation:["VALIDACION CX","VALIDACIÓN CX","VALIDACION_CX"],
+  n2level:["NIVEL N2","NIVEL_N2"],
+  webtheme:["TEMA WEB","TEMA_WEB"]
+};
+
+function getField(row, aliases){
+  const keys = Object.keys(row);
+  for (const alias of aliases){
+    const wanted = normKey(alias);
+    const exact = keys.find(k => normKey(k) === wanted);
+    if (exact && normalize(row[exact])) return normalize(row[exact]);
+  }
+  return "";
+}
+
+function mapRow(row, index){
+  const r = {};
+  for (const [field, aliases] of Object.entries(FIELD_ALIASES)) r[field] = getField(row, aliases);
+
+  // Fallbacks seguros: no inventan evaluación, solo facilitan visualización.
+  r.id = r.id || `${r.level || "INI"}-${String(index+1).padStart(3,"0")}`;
+  r.title = r.title || r.proposal || r.problem || `Iniciativa ${index+1}`;
+  return r;
+}
+
+function isYes(v){ return ["si","sí","yes","true","1","x"].includes(low(v)); }
+function contains(v, words){ const s=low(v); return words.some(w=>s.includes(low(w))); }
+
+async function loadData(){
+  try{
+    const response = await fetch(CSV_URL, {cache:"no-store"});
+    if(!response.ok) throw new Error("No se pudo descargar el CSV");
+    const csv = await response.text();
+    const parsed = Papa.parse(csv, {header:true, skipEmptyLines:"greedy"});
+    if(parsed.errors?.length) console.warn("Advertencias CSV:", parsed.errors);
+
+    initiatives = parsed.data.map(mapRow).filter(x =>
+      Object.values(x).some(v => normalize(v))
+    );
+    filteredInitiatives = [...initiatives];
+
+    document.getElementById("dataStatus").textContent = `Datos actualizados · ${initiatives.length} registros`;
+    document.getElementById("dataStatus").className = "status ok";
+
+    buildFilters();
+    renderAll();
+  }catch(error){
+    console.error(error);
+    const s=document.getElementById("dataStatus");
+    s.textContent="No se pudo cargar el CSV";
+    s.className="status error";
+    document.getElementById("initiativesGrid").innerHTML =
+      `<div class="empty">Revisa que la pestaña de Google Sheets siga publicada como CSV y que el enlace sea accesible.</div>`;
+  }
+}
+
+function renderAll(){
+  renderKPIs();
+  renderFeatured();
+  renderCharts();
+  renderCards();
+}
+
+function renderKPIs(){
+  const n1 = initiatives.filter(x => contains(x.level,["n1","nivel 1","1er nivel","primer nivel"])).length;
+  const n2 = initiatives.filter(x => contains(x.level,["n2","nivel 2","2do nivel","segundo nivel"])).length;
+
+  const hasValidField = initiatives.some(x => normalize(x.valid));
+  const valid = hasValidField
+    ? initiatives.filter(x => isYes(x.valid) || contains(x.valid,["requiere reformulacion","requiere reformulación"])).length
+    : initiatives.filter(x => normalize(x.recommendation)).length;
+
+  const sales = initiatives.filter(x =>
+    contains(x.sales,["alta"]) || contains(x.kpi,["venta","ventas"]) || contains(x.webtheme,["venta"])
+  ).length;
+
+  const priority = initiatives.filter(x =>
+    contains(x.priority,["alta"]) || contains(x.recommendation,["priorizar para escalar","escalable con validacion","escalable con validación"])
+  ).length;
+
+  const tracking = initiatives.filter(x => contains(x.state,["en seguimiento"])).length;
+
+  document.getElementById("kpiTotal").textContent = initiatives.length;
+  document.getElementById("kpiLevels").textContent = `${n1} N1 · ${n2} N2`;
+  document.getElementById("kpiValid").textContent = valid;
+  document.getElementById("kpiSales").textContent = sales;
+  document.getElementById("kpiPriority").textContent = priority;
+  document.getElementById("kpiTracking").textContent = tracking;
+}
+
+function featuredScore(x){
+  let score=0;
+  if(isYes(x.featured)) score+=100;
+  if(contains(x.level,["n2","nivel 2","segundo nivel","2do nivel"])) score+=12;
+  if(contains(x.priority,["alta"])) score+=10;
+  if(contains(x.kpi,["venta","ventas"]) || contains(x.sales,["alta"]) || contains(x.webtheme,["venta"])) score+=8;
+  if(isYes(x.n2level)) score+=5;
+  if(contains(x.viability,["alta","si","sí"])) score+=5;
+  if(contains(x.complexity,["baja"])) score+=4;
+  if(contains(x.horizon,["mediano","corto"])) score+=3;
+  if(contains(x.recommendation,["priorizar"])) score+=8;
+  if(x.valid && contains(x.valid,["no"])) score-=100;
+  return score;
+}
+
+function renderFeatured(){
+  const target=document.getElementById("featuredGrid");
+  const featured=[...initiatives]
+    .filter(x => !x.valid || !contains(x.valid,["no"]))
+    .sort((a,b)=>featuredScore(b)-featuredScore(a))
+    .slice(0,6);
+
+  target.innerHTML = featured.length
+    ? featured.map(cardTemplate).join("")
+    : `<div class="empty">No hay iniciativas destacadas disponibles.</div>`;
+}
+
+function groupCount(list, key){
+  const map={};
+  list.forEach(x=>{
+    const value=normalize(x[key]) || "Sin información";
+    map[value]=(map[value]||0)+1;
+  });
+  return map;
+}
+
+function renderCharts(){
+  const centers={};
+  initiatives.forEach(x=>{
+    const center=x.center || "Sin información";
+    centers[center] ||= {n1:0,n2:0};
+    if(contains(x.level,["n2","nivel 2","segundo nivel","2do nivel"])) centers[center].n2++;
+    else if(contains(x.level,["n1","nivel 1","primer nivel","1er nivel"])) centers[center].n1++;
+  });
+
+  const centerLabels=Object.keys(centers).sort((a,b)=>(centers[b].n1+centers[b].n2)-(centers[a].n1+centers[a].n2));
+  if(centerChart) centerChart.destroy();
+  centerChart=new Chart(document.getElementById("centerChart"),{
+    type:"bar",
+    data:{
+      labels:centerLabels,
+      datasets:[
+        {label:"N1",data:centerLabels.map(c=>centers[c].n1)},
+        {label:"N2",data:centerLabels.map(c=>centers[c].n2)}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:"bottom"}},
+      scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}},
+      onClick:(_,els)=>{
+        if(!els.length) return;
+        document.getElementById("centerFilter").value=centerLabels[els[0].index];
+        applyFilters();
+        document.querySelector(".filters").scrollIntoView({behavior:"smooth"});
+      }
+    }
+  });
+
+  const skills=groupCount(initiatives.filter(x=>x.skill),"skill");
+  const skillLabels=Object.keys(skills).sort((a,b)=>skills[b]-skills[a]);
+  if(skillChart) skillChart.destroy();
+  skillChart=new Chart(document.getElementById("skillChart"),{
+    type:"bar",
+    data:{labels:skillLabels,datasets:[{label:"Iniciativas",data:skillLabels.map(s=>skills[s])}]},
+    options:{
+      indexAxis:"y",responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true,ticks:{precision:0}},y:{grid:{display:false}}},
+      onClick:(_,els)=>{
+        if(!els.length) return;
+        document.getElementById("skillFilter").value=skillLabels[els[0].index];
+        applyFilters();
+        document.querySelector(".filters").scrollIntoView({behavior:"smooth"});
+      }
+    }
+  });
+}
+
+function uniqueValues(field){
+  return [...new Set(initiatives.map(x=>x[field]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+}
+function fillSelect(id, values){
+  const select=document.getElementById(id);
+  const first=select.options[0].outerHTML;
+  select.innerHTML=first+values.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
+}
+function buildFilters(){
+  fillSelect("levelFilter",uniqueValues("level"));
+  fillSelect("centerFilter",uniqueValues("center"));
+  fillSelect("skillFilter",uniqueValues("skill"));
+  fillSelect("kpiFilter",uniqueValues("kpi"));
+  fillSelect("bankFilter",uniqueValues("bank"));
+  fillSelect("priorityFilter",uniqueValues("priority"));
+  fillSelect("themeFilter",uniqueValues("webtheme"));
+
+  ["search","levelFilter","centerFilter","skillFilter","kpiFilter","bankFilter","priorityFilter","themeFilter"]
+    .forEach(id=>document.getElementById(id).addEventListener(id==="search"?"input":"change",applyFilters));
+
+  document.getElementById("clearFilters").addEventListener("click",()=>{
+    ["search","levelFilter","centerFilter","skillFilter","kpiFilter","bankFilter","priorityFilter","themeFilter"].forEach(id=>document.getElementById(id).value="");
+    applyFilters();
+  });
+}
+
+function applyFilters(){
+  const q=low(document.getElementById("search").value);
+  const filters={
+    level:document.getElementById("levelFilter").value,
+    center:document.getElementById("centerFilter").value,
+    skill:document.getElementById("skillFilter").value,
+    kpi:document.getElementById("kpiFilter").value,
+    bank:document.getElementById("bankFilter").value,
+    priority:document.getElementById("priorityFilter").value,
+    webtheme:document.getElementById("themeFilter").value
+  };
+  filteredInitiatives=initiatives.filter(x=>{
+    const haystack=low([x.title,x.problem,x.proposal,x.recommendation,x.justification].join(" "));
+    return (!q || haystack.includes(q)) &&
+      Object.entries(filters).every(([k,v])=>!v || x[k]===v);
+  });
+  renderCards();
+}
+
+function cardTemplate(x){
+  const n2=contains(x.level,["n2","nivel 2","segundo nivel","2do nivel"]);
+  return `<article class="card initiative-card">
+    <div class="card-top">
+      <span class="badge ${n2?"n2":""}">${escapeHtml(n2?"N2 · Especializada":x.level||"Sin nivel")}</span>
+      ${x.priority?`<span class="badge ${contains(x.priority,["alta"])?"high":""}">${escapeHtml(x.priority)}</span>`:""}
+    </div>
+    <div>
+      <div class="initiative-title">${escapeHtml(x.title)}</div>
+      <div class="snippet">${escapeHtml(x.problem || x.proposal || x.justification || "Sin descripción disponible.")}</div>
+    </div>
+    <div class="initiative-meta">
+      ${pill(x.center)}
+      ${pill(x.kpi)}
+      ${pill(x.bank)}
+      ${pill(x.webtheme)}
+      ${pill(x.state)}
+    </div>
+    <div class="card-actions">
+      <span class="kpi-detail">${escapeHtml(x.horizon||"")}</span>
+      <button class="link-btn" onclick="openDetail('${escapeJs(x.id)}')">Ver análisis →</button>
+    </div>
+  </article>`;
+}
+
+function pill(v){return v?`<span class="meta-pill">${escapeHtml(v)}</span>`:"";}
+
+function renderCards(){
+  const grid=document.getElementById("initiativesGrid");
+  document.getElementById("resultsCount").textContent=`${filteredInitiatives.length} de ${initiatives.length} iniciativas`;
+  grid.innerHTML=filteredInitiatives.length
+    ? filteredInitiatives.map(cardTemplate).join("")
+    : `<div class="empty">No se encontraron iniciativas con los filtros seleccionados.</div>`;
+}
+
+function openDetail(id){
+  const x=initiatives.find(i=>i.id===id);
+  if(!x) return;
+  document.getElementById("detailTitle").textContent=x.title;
+  document.getElementById("detailBadges").innerHTML=[
+    x.level,x.center,x.priority,x.state
+  ].filter(Boolean).map(pill).join("");
+
+  document.getElementById("drawerContent").innerHTML=`
+    <section class="detail-section">
+      <h3>Información original</h3>
+      <div class="detail-grid">
+        ${detailItem("Centro",x.center)}
+        ${detailItem("Plataforma",x.skill)}
+      </div>
+      ${x.problem ? `<h3 style="margin-top:16px">Problema identificado</h3><p>${escapeHtml(x.problem)}</p>` : ""}
+      <h3 style="margin-top:16px">Propuesta de mejora</h3>
+      <p>${escapeHtml(x.proposal||"Sin información disponible.")}</p>
+    </section>
+
+    <section class="detail-section">
+      <h3>Evaluación</h3>
+      <div class="detail-grid">
+        ${detailItem("¿Es iniciativa?",x.valid)}
+        ${detailItem("Motivo descarte / revisión",x.discard)}
+        ${detailItem("KPI",x.kpi)}
+        ${detailItem("Foco Venta",x.sales)}
+        ${detailItem("Banco",x.bank)}
+        ${detailItem("Viabilidad",x.viability)}
+        ${detailItem("Evidencia",x.evidence)}
+        ${detailItem("Complejidad",x.complexity)}
+        ${detailItem("Horizonte",x.horizon)}
+        ${detailItem("Prioridad",x.priority)}
+        ${detailItem("Estado",x.state)}
+        ${detailItem("Nivel N2",x.n2level)}
+        ${detailItem("Tema Web",x.webtheme)}
+        ${detailItem("Validación CX",x.validation)}
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h3>Evaluación del agente</h3>
+      <p><strong>Recomendación:</strong> ${escapeHtml(x.recommendation||"Sin información.")}</p>
+      <p>${escapeHtml(x.justification||"Sin justificación registrada.")}</p>
+    </section>
+
+    <section class="detail-section">
+      <h3>Comentarios</h3>
+      <div class="comment-placeholder">No hay comentarios registrados.</div>
+      <input id="commentAuthor" placeholder="Nombre" />
+      <textarea id="commentText" rows="4" placeholder="Escribe un comentario…" style="margin-top:9px"></textarea>
+      <div class="comment-options">
+        <label><input type="radio" name="commentAction" value="comentar" checked> Solo comentar</label>
+        <label><input type="radio" name="commentAction" value="reevaluar"> Solicitar reevaluación</label>
+        <label><input type="radio" name="commentAction" value="estado"> Actualizar estado</label>
+      </div>
+      <button class="btn btn-primary" onclick="enviarComentario('${escapeJs(x.id)}')">Enviar comentario</button>
+      <div class="notice">El formulario está preparado para Google Apps Script. Hasta configurar el endpoint, no modificará el Spreadsheet.</div>
+    </section>`;
+  document.getElementById("drawerBackdrop").classList.add("open");
+}
+
+function detailItem(label,value){
+  return `<div class="detail-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value||"Sin información")}</strong></div>`;
+}
+
+/*
+  FASE 2 - COMENTARIOS
+  1) Crea una hoja COMENTARIOS.
+  2) Publica un Google Apps Script como Web App.
+  3) Pega su URL aquí.
+*/
+const APPS_SCRIPT_URL = "";
+
+async function enviarComentario(idIniciativa){
+  const autor=document.getElementById("commentAuthor").value.trim();
+  const comentario=document.getElementById("commentText").value.trim();
+  const accion=document.querySelector('input[name="commentAction"]:checked')?.value || "comentar";
+
+  if(!autor || !comentario){
+    alert("Completa tu nombre y el comentario.");
+    return;
+  }
+  if(!APPS_SCRIPT_URL){
+    alert("El módulo visual ya está listo. Falta conectar la URL de Google Apps Script para guardar comentarios en el Spreadsheet.");
+    return;
+  }
+
+  try{
+    await fetch(APPS_SCRIPT_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({
+        idIniciativa,autor,comentario,accion,fecha:new Date().toISOString()
+      })
+    });
+    alert("Comentario enviado.");
+    document.getElementById("commentText").value="";
+  }catch(e){
+    console.error(e);
+    alert("No se pudo enviar el comentario.");
+  }
+}
+
+function escapeHtml(v=""){
+  return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+function escapeAttr(v=""){return escapeHtml(v);}
+function escapeJs(v=""){return String(v).replace(/\\/g,"\\\\").replace(/'/g,"\\'");}
+
+document.getElementById("closeDrawer").addEventListener("click",()=>document.getElementById("drawerBackdrop").classList.remove("open"));
+document.getElementById("drawerBackdrop").addEventListener("click",e=>{
+  if(e.target.id==="drawerBackdrop") e.currentTarget.classList.remove("open");
+});
+
+loadData();
+</script>
+</body>
+</html>
