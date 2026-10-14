@@ -135,12 +135,18 @@ function Habilidades({rows}){
 
 /* ---------- Cumplimiento por supervisor ---------- */
 function SupervisoresChart({rows}){
-  const [t,setT]=useState('COACHING GRUPAL');
+  const [t,setT]=useState('COACHING GRUPAL'),[c,setC]=useState(''),[h,setH]=useState('');
   const cb=t==='CALLBACK',thr=(cb?.7:.9)*100;
-  const data=useMemo(()=>group(rows.filter(r=>r.t===t&&r.sup),['sup']).sort((a,b)=>(a.m.p??2)-(b.m.p??2)),[rows,t]);
+  const tr=rows.filter(r=>r.t===t);
+  const cs=uniq(tr,r=>r.c).sort(),cc=cs.includes(c)?c:'';
+  const hs=uniq(tr.filter(r=>!cc||r.c===cc),r=>r.h).sort(),hh=hs.includes(h)?h:'';
+  const base=useMemo(()=>tr.filter(r=>(!cc||r.c===cc)&&(!hh||r.h===hh)),[rows,t,cc,hh]);
+  const data=useMemo(()=>group(base.filter(r=>r.sup),['sup']).sort((a,b)=>(a.m.p??2)-(b.m.p??2)),[base]);
   return <div className="card p-5">
     <Title right={<Seg v={t} set={setT} opts={TIPOS.map(x=>[x,NOM[x]])}/>}>Cumplimiento por Supervisor</Title>
-    {!data.length?<p className="text-sm text-slate-500 py-8 text-center">Esta base no tiene columna Supervisor, o no hay datos para esta selección.</p>:
+    <div className="flex flex-wrap items-end gap-3 mb-4"><div className="w-48"><Sel label="Centro" v={cc} set={setC} opts={cs}/></div><div className="w-48"><Sel label="Habilidad" v={hh} set={setH} opts={hs}/></div></div>
+    {!cc?<p className="text-sm text-slate-500 py-8 text-center">Elige un centro para ver sus supervisores.</p>:
+    !data.length?<p className="text-sm text-slate-500 py-8 text-center">Esta base no tiene columna Supervisor, o no hay datos para esta selección.</p>:
     <div className="space-y-3">{data.map(d=>{const s=sem(d.m.p,t);return <div key={d.sup} className="grid grid-cols-[9rem_1fr_auto] items-center gap-3">
       <div className="text-sm font-bold truncate" title={d.sup}>{d.sup}</div>
       <div className="h-5 rounded-lg bg-slate-100 relative overflow-hidden"><div className="h-full rounded-lg" style={{width:d.m.p==null?0:Math.min(100,d.m.p*100)+'%',background:s?C[s].bar:'#cbd5e1'}}/><div className="absolute top-0 bottom-0 border-l border-dashed border-slate-400/70" style={{left:thr+'%'}}/></div>
