@@ -36,6 +36,15 @@ const C={g:{bar:'#00e39a',tx:'#008a5e'},y:{bar:'#f5b700',tx:'#946c00'},r:{bar:'#
 const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim().replace(/\s+/g,' ');
 const num=v=>{if(v==null||v==='')return null;const x=typeof v==='number'?v:parseFloat(String(v).replace(',','.'));return isFinite(x)?x:null};
 const txt=v=>v==null?'':String(v).trim();
+// Busca en toda la hoja una celda "ACTUALIZADO AL" y devuelve el texto de la celda contigua (la que tú escribes a mano).
+function findActualizado(aoa){
+  for(const r of aoa){
+    if(!r)continue;
+    const i=r.findIndex(c=>norm(c)==='ACTUALIZADO AL');
+    if(i>=0){const v=txt(r[i+1]);if(v)return v}
+  }
+  return null;
+}
 function parseSheet(aoa){
   const hi=aoa.slice(0,15).findIndex(r=>r&&r.some(c=>norm(c)==='CENTRO'));
   if(hi<0)throw new Error('No se encontró la fila de encabezados (columna CENTRO).');
@@ -222,15 +231,16 @@ function Avance({rows}){
 
 /* ---------- App ---------- */
 function App(){
-  const [rows,setRows]=useState([]),[err,setErr]=useState(''),[status,setStatus]=useState('cargando'),[upd,setUpd]=useState(null);
+  const [rows,setRows]=useState([]),[err,setErr]=useState(''),[status,setStatus]=useState('cargando'),[upd,setUpd]=useState(null),[baseUpd,setBaseUpd]=useState(null);
   React.useEffect(()=>{
     let stop=false;
     const pull=async()=>{
       try{
         const res=await fetch(CSV_URL+'&t='+Date.now(),{cache:'no-store'});
         if(!res.ok)throw new Error('HTTP '+res.status);
-        const r=parseSheet(parseCSV(await res.text()));
-        if(!stop){setRows(r);setStatus('vivo');setUpd(new Date());setErr('')}
+        const aoa=parseCSV(await res.text());
+        const r=parseSheet(aoa);
+        if(!stop){setRows(r);setStatus('vivo');setUpd(new Date());setBaseUpd(findActualizado(aoa));setErr('')}
       }catch(x){if(!stop){setStatus(s=>s==='vivo'?s:'error');setErr(x.message)}}
     };
     pull();const id=setInterval(pull,300000);return()=>{stop=true;clearInterval(id)};
