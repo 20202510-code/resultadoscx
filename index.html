@@ -36,12 +36,17 @@ const C={g:{bar:'#00e39a',tx:'#008a5e'},y:{bar:'#f5b700',tx:'#946c00'},r:{bar:'#
 const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim().replace(/\s+/g,' ');
 const num=v=>{if(v==null||v==='')return null;const x=typeof v==='number'?v:parseFloat(String(v).replace(',','.'));return isFinite(x)?x:null};
 const txt=v=>v==null?'':String(v).trim();
-// Busca en toda la hoja una celda "ACTUALIZADO AL" y devuelve el texto de la celda contigua (la que tú escribes a mano).
+// Busca una celda que empiece con "Actualizado al" (con o sin ":") y devuelve la fecha que escribes:
+// puede estar en la misma celda ("Actualizado al: 15/10/2026") o en la primera celda con contenido a su derecha.
 function findActualizado(aoa){
   for(const r of aoa){
     if(!r)continue;
-    const i=r.findIndex(c=>norm(c)==='ACTUALIZADO AL');
-    if(i>=0){const v=txt(r[i+1]);if(v)return v}
+    for(let i=0;i<r.length;i++){
+      if(!norm(r[i]).startsWith('ACTUALIZADO AL'))continue;
+      const inline=txt(r[i]).replace(/^actualizado\s+al\s*:?\s*/i,'');
+      if(inline)return inline;
+      for(let j=i+1;j<r.length;j++){const v=txt(r[j]);if(v)return v}
+    }
   }
   return null;
 }
@@ -255,8 +260,10 @@ function App(){
   return <div className="min-h-screen">
     <header className="bg-entel text-white"><div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
       <h1 className="text-2xl font-extrabold tracking-tight">Sistema CX</h1>
-      <div className="flex items-center gap-2 text-sm text-white/85" title="Se actualiza sola desde Google Sheets cada 5 minutos"><i className="w-2 h-2 rounded-full inline-block" style={{background:status==='vivo'?'#00fdaa':'#f5b700'}}/>{status==='vivo'?'En vivo · '+upd.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}):status==='cargando'?'Conectando…':'Sin conexión'}</div></div>
-      <div className="h-1 bg-gradient-to-r from-[#00fdaa] via-[#005bfd] to-[#fd3d01] opacity-90"/></header>
+<div className="flex flex-col items-end leading-tight text-right">
+  {baseUpd&&<div className="text-sm sm:text-base font-extrabold tracking-wide">Actualizado al: {baseUpd}</div>}
+  <div className="flex items-center gap-2 text-xs text-white/80" title="Se actualiza sola desde Google Sheets cada 5 minutos"><i className="w-2 h-2 rounded-full inline-block" style={{background:status==='vivo'?'#00fdaa':'#f5b700'}}/>{status==='vivo'?'En vivo · '+upd.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}):status==='cargando'?'Conectando…':'Sin conexión'}</div>
+</div></div>      <div className="h-1 bg-gradient-to-r from-[#00fdaa] via-[#005bfd] to-[#fd3d01] opacity-90"/></header>
     <main className="max-w-7xl mx-auto px-5 py-5 space-y-5">
       {err&&<div role="alert" className="rounded-xl px-4 py-3 text-sm font-semibold flex justify-between" style={{background:'#ffece6',color:'#c73000'}}><span>{err}</span><button onClick={()=>setErr('')} aria-label="Cerrar">✕</button></div>}
       <div className="card p-4 flex flex-wrap items-end gap-3 sticky top-0 z-20">
