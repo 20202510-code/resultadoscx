@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voz del Cliente · Sistema CX</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{entel:'#005bfd'},fontFamily:{sans:['Manrope','system-ui','sans-serif']}}}}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{background:#f4f6fa;font-family:Manrope,system-ui,sans-serif;color:#0f1b3d}
+.card{background:#fff;border-radius:20px;box-shadow:0 1px 2px rgba(15,27,61,.04),0 4px 16px rgba(15,27,61,.04)}
+th{white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect}=React;
+
+/* ====== CONFIGURACIÓN: único lugar donde se define la fuente de datos ====== */
+const CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSxEsIPldUM5Sn2jxxaXRhr625btlsYtpdIFqw3mWY7DrUylLg2GC1d8SabAEYTXnuSUkWZ2zLpYOy4/pub?gid=0&single=true&output=csv';
+const MAIN_URL='index.html'; // ajusta si tu dashboard principal tiene otro nombre
+
+/* ====== 1. CARGA Y NORMALIZACIÓN ====== */
+const parseCSV=t=>{const o=[];let r=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}else if(c==='"')q=true;else if(c===','){r.push(f);f=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;r.push(f);o.push(r);r=[];f=''}else f+=c}if(f!==''||r.length){r.push(f);o.push(r)}return o};
+const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim().replace(/\s+/g,' ');
+const txt=v=>v==null?'':String(v).trim().replace(/\s+/g,' ');
+const MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const mi=m=>{const n=norm(m);return n==='SETIEMBRE'?8:MESES.indexOf(n)};
+const cap=s=>s?s.charAt(0).toUpperCase()+s.slice(1).toLowerCase():s;
+// Evaluaciones reales vistas en el formulario. Cualquier otro valor queda como "no reconocida" y NO entra en los denominadores.
+const EV={POSITIVA:'pos',NEUTRA:'neu',NEGATIVA:'neg'};
+const EVK=[['pos','Positiva','#00DFA5','#053b2a'],['neu','Neutra','#94a3b8','#1e293b'],['neg','Negativa','#FF3F00','#ffffff']];
+const CTK=[['SI','Contactado','#005bfd','#ffffff'],['NO','No contactado','#FF3F00','#ffffff']];
+const HM={y:h=>h==='ANO',m:h=>h==='MES',c:h=>h==='CENTRO',sk:h=>h==='HABILIDAD',ct:h=>h.includes('LOGRASTE'),mo:h=>h.includes('MOTIVO'),ev:h=>h.includes('EVALUA'),co:h=>h.includes('COMENTO'),as:h=>h.includes('ASPECTO'),me:h=>h.includes('OPORTUNIDAD DE MEJORA')};
+const NM={y:'AÑO',m:'MES',c:'CENTRO',ct:'¿Lograste contactar…?',mo:'Motivo de contacto fallido',ev:'Evaluación',co:'Comentario',as:'Aspecto de oportunidad',me:'Oportunidad de mejora'};
+function parseSheet(a){
+  const hi=a.slice(0,10).findIndex(r=>r&&r.some(c=>norm(c)==='CENTRO'));
+  if(hi<0)throw new Error('No se encontró la fila de encabezados (columna CENTRO).');
+  const hd=a[hi].map(norm),ix={},miss=[];
+  for(const k in HM){const i=hd.findIndex(HM[k]);if(i<0){if(k!=='sk')miss.push(NM[k])}else ix[k]=i}
+  if(miss.length)throw new Error('Faltan columnas: '+miss.join(', ')+'.');
+  const rows=[];
+  for(const r of a.slice(hi+1)){
+    if(!r||r.every(c=>!txt(c)))continue; // filas vacías al final
+    const o={};for(const k in HM)o[k]=k in ix?txt(r[ix[k]]):'';
+    const ctn=norm(o.ct),evn=norm(o.ev);
+    rows.push({...o,raw:Object.values(o).join('|'),cen:o.c||'Sin centro',sk:o.sk||'Sin informar',mes:cap(o.m)||'Sin mes',
+      per:(parseInt(o.y)||0)*100+Math.max(mi(o.m),0),ctn:ctn==='SI'||ctn==='NO'?ctn:'',evk:EV[evn]||null,
+      cts:ctn==='SI'?'Sí':ctn==='NO'?'No':(o.ct||'—'),evl:EV[evn]?cap(evn):(o.ev||'—'),tx:norm(o.co+' '+o.me)});
+  }
+  if(!rows.length)throw new Error('El archivo no contiene registros.');
+  return rows;
+}
+
+/* ====== 2. TEMAS (palabras clave sobre comentario + mejora; un texto puede tener varios temas) ====== */
+const TEMAS=[['Cliente no respondió o colgó',/COLG|CUELG|MUDO|MUDA|NO QUIZO|NO RESPOND|NO PUEDE RESPONDER|NO PUEDO RESPONDER|OCUPAD|NO TENGO TIEMPO|ALO ALO/],['Cargos y cobros',/COBR|CARG|BOLETA|FACTURA/],['Precio y planes',/PLAN|PRECIO|VALOR|CARO|COSTOS|DESCUENTO|OFERTA|PROMOCION|ECONOMIC/],['Cobertura y señal',/SENAL|COBERTURA|\bRED\b|INTERNET|NAVEGACION|ANTENA/],['Falta de solución',/SOLUCION|SOLVENT|RESOLUT|NO ME AYUDARON|NO ME RESOLV/],['Tiempos de espera',/ESPERA|DEMOR|VELOCIDAD|DERIVAR/],['Incumplimiento o información incorrecta',/MENTIR|FALSA|NO CUMPL|PROMESA|AUTORIZ|NO CONTRATE|RESPET/],['Sin observaciones (todo bien)',/TODO (MUY )?BIEN|NADA QUE (AGREGAR|AREGAR|MEJORAR)|EXCELENTE|TODO OK/]];
+const temasDe=r=>TEMAS.filter(t=>t[1].test(r.tx)).map(t=>t[0]);
+
+/* ====== 3. CÁLCULO ====== */
+const fp=p=>p==null?'Sin datos':(p*100).toLocaleString('es-PE',{maximumFractionDigits:1})+'%';
+const pc=(a,b)=>b?a/b:null;
+const cnt=(rows,f)=>{const m={};rows.forEach(r=>{const k=f(r);if(k)m[k]=(m[k]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
+const grp=(rows,f,pf)=>{const m=new Map();rows.forEach(r=>{const k=f(r);if(!m.has(k))m.set(k,{l:k,p:{},per:r.per});const pk=pf(r);if(pk){const g=m.get(k);g.p[pk]=(g.p[pk]||0)+1}});return[...m.values()]};
+const uniq=(a,f)=>[...new Set(a.map(f).filter(Boolean))];
+
+/* ====== 4. UI ====== */
+const Empty=({t='Sin datos para esta selección.'})=><p className="text-sm text-slate-500 py-6 text-center">{t}</p>;
+const Title=({children,sub})=><div className="mb-4"><h2 className="text-lg font-extrabold tracking-tight">{children}</h2>{sub&&<p className="text-sm text-slate-500">{sub}</p>}</div>;
+const Sel=({label,v,set,opts})=><label className="flex flex-col gap-1 text-xs text-slate-500 font-semibold min-w-[8.5rem] flex-1">{label}<select value={v} onChange={e=>set(e.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-entel/40"><option value="">Todos</option>{opts.map(([k,l])=><option key={k} value={k}>{l}</option>)}</select></label>;
+const Legend=({keys})=><div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs text-slate-600">{keys.map(k=><span key={k[0]} className="inline-flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm inline-block" style={{background:k[2]}}/>{k[1]}</span>)}</div>;
+const Kpi=({l,v,s})=><div className="card p-4"><div className="text-xs font-semibold text-slate-500">{l}</div><div className="text-3xl font-extrabold tracking-tight tabular-nums mt-1" style={{color:v==='Sin datos'?'#94a3b8':'#0f1b3d'}}>{v}</div><div className="text-xs text-slate-500 mt-1">{s}</div></div>;
+const Stack=({items,keys})=>items.length?<div className="space-y-2.5"><Legend keys={keys}/>{items.map(it=>{const n=keys.reduce((s,k)=>s+(it.p[k[0]]||0),0);return <div key={it.l} className="grid grid-cols-[7rem_1fr_3.5rem] sm:grid-cols-[11rem_1fr_4rem] items-center gap-3"><div className="text-sm font-bold leading-tight break-words">{it.l}</div><div className="flex h-6 rounded-lg overflow-hidden bg-slate-100" role="img" aria-label={keys.map(k=>k[1]+' '+(it.p[k[0]]||0)).join(', ')}>{keys.map(([k,l,bg,fg])=>{const v=it.p[k]||0,w=n?v/n*100:0;return v?<div key={k} title={l+': '+v+' ('+fp(v/n)+')'} style={{width:w+'%',background:bg,color:fg}} className="text-[11px] font-bold flex items-center justify-center">{w>=12?Math.round(w)+'%':''}</div>:null})}</div><div className="text-xs text-slate-500 text-right tabular-nums">n={n}</div></div>})}</div>:<Empty/>;
+const Rank=({items,total,color='#005bfd',onPick,sel})=>items.length?<div className="space-y-1.5">{items.map(([l,v])=>{const p=pc(v,total),B=onPick?'button':'div';return <B key={l} onClick={onPick?()=>onPick(sel===l?'':l):undefined} className={'w-full grid grid-cols-[8.5rem_1fr_6.5rem] sm:grid-cols-[14rem_1fr_7rem] items-center gap-3 text-left rounded-lg px-1.5 py-0.5 '+(sel===l?'bg-entel/10':onPick?'hover:bg-slate-50':'')}><span className="text-sm font-semibold leading-tight">{l}</span><span className="h-4 rounded bg-slate-100 overflow-hidden block"><span className="block h-full rounded" style={{width:(p||0)*100+'%',background:color}}/></span><span className="text-sm tabular-nums text-right"><b>{v}</b> <span className="text-slate-500">· {fp(p)}</span></span></B>})}</div>:<Empty/>;
+const EvDot=({k,l})=>{const e=EVK.find(x=>x[0]===k);return <span className="inline-flex items-center gap-1.5 font-semibold">{e&&<i className="w-2.5 h-2.5 rounded-full inline-block" style={{background:e[2]}}/>}{l}</span>};
+
+/* ====== 5. BLOQUES ====== */
+function Sentimiento({rows}){
+  const v=rows.filter(r=>r.evk),multi=new Set(v.map(r=>r.per)).size>1;
+  const byC=grp(v,r=>r.cen,r=>r.evk).sort((a,b)=>{const f=g=>pc((g.p.neg||0)+(g.p.neu||0),Object.values(g.p).reduce((s,x)=>s+x,0));return f(b)-f(a)});
+  const byM=grp(v,r=>r.mes+' '+r.y,r=>r.evk).sort((a,b)=>a.per-b.per);
+  const dist=EVK.map(([k,l])=>[l,v.filter(r=>r.evk===k).length]);
+  return <div className="card p-5"><Title sub={'Base: '+v.length+' evaluaciones válidas. Los centros se ordenan de mayor a menor proporción de experiencias neutras + negativas.'}>¿Cómo se sintió el cliente?</Title>
+    <div className="grid lg:grid-cols-3 gap-6"><div><h3 className="text-sm font-extrabold mb-2">Distribución</h3><Rank items={dist} total={v.length} color="#005bfd"/></div>
+    <div className="lg:col-span-2"><h3 className="text-sm font-extrabold mb-2">Por centro</h3><Stack items={byC} keys={EVK}/></div></div>
+    <h3 className="text-sm font-extrabold mt-6 mb-2">Evolución mensual</h3>{multi?<Stack items={byM} keys={EVK}/>:<Empty t="Hay un solo mes en la selección. La evolución aparecerá cuando existan al menos dos meses."/>}</div>;
+}
+function Comentarios({rows,tema,setTema}){
+  const t=rows.filter(r=>r.co||r.me),items=TEMAS.map(x=>[x[0],t.filter(r=>x[1].test(r.tx)).length]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);
+  return <div className="card p-5"><Title sub={'Base: '+t.length+' respuestas con comentario o mejora. Haz clic en un tema para filtrar la tabla de detalle.'}>¿Qué nos dicen los clientes?</Title>
+    <Rank items={items} total={t.length} onPick={setTema} sel={tema}/>
+    <details className="mt-4 text-xs text-slate-500"><summary className="cursor-pointer font-semibold">Cómo se calculan los temas</summary><p className="mt-2 max-w-3xl">Clasificación por palabras clave sobre el comentario y la mejora indicada. Una respuesta puede pertenecer a varios temas, por lo que los porcentajes no suman 100%. No mide sentimiento ni causa raíz: puede haber falsos positivos (por ejemplo, “solución” dentro de un comentario positivo). Úsala para explorar, y confirma leyendo los comentarios.</p></details></div>;
+}
+function Oportunidades({rows,asp,setAsp}){
+  const o=rows.filter(r=>r.as),rk=cnt(o,r=>r.as),cs=uniq(o,r=>r.cen).sort();
+  return <div className="card p-5"><Title sub={'Base: '+o.length+' respuestas con aspecto informado (menciones, no clientes únicos). Haz clic en una categoría para filtrar la tabla de detalle.'}>Principales oportunidades de mejora</Title>
+    <Rank items={rk} total={o.length} onPick={setAsp} sel={asp}/>
+    {rk.length>0&&<div className="overflow-x-auto mt-5"><table className="w-full text-sm"><caption className="text-left text-sm font-extrabold mb-2">Comparativo por centro (menciones y % del centro)</caption><thead><tr className="text-xs text-slate-500 border-b border-slate-100"><th className="text-left py-2 px-2">Aspecto</th>{cs.map(c=><th key={c} className="text-right py-2 px-2">{c}</th>)}</tr></thead>
+    <tbody>{rk.map(([a])=><tr key={a} className="border-b border-slate-50"><td className="py-2 px-2 font-semibold">{a}</td>{cs.map(c=>{const tot=o.filter(r=>r.cen===c),n=tot.filter(r=>r.as===a).length;return <td key={c} className="py-2 px-2 text-right tabular-nums">{n} <span className="text-slate-500">· {fp(pc(n,tot.length))}</span></td>})}</tr>)}</tbody></table></div>}</div>;
+}
+function Contacto({rows}){
+  const v=rows.filter(r=>r.ctn),si=v.filter(r=>r.ctn==='SI').length,no=v.length-si,multiM=new Set(v.map(r=>r.per)).size>1,sks=uniq(v,r=>r.sk).length>1;
+  const pf=r=>r.ctn,byC=grp(v,r=>r.cen,pf).sort((a,b)=>(pc(b.p.NO||0,(b.p.NO||0)+(b.p.SI||0)))-(pc(a.p.NO||0,(a.p.NO||0)+(a.p.SI||0))));
+  const mot=cnt(v.filter(r=>r.ctn==='NO'&&r.mo),r=>r.mo),nm=mot.reduce((s,x)=>s+x[1],0);
+  return <div className="card p-5"><Title sub={'Base: '+v.length+' respuestas con resultado de contacto válido.'}>Contacto efectivo</Title>
+    <div className="grid grid-cols-3 gap-3 mb-5"><Kpi l="Tasa de contacto" v={fp(pc(si,v.length))} s={si+' de '+v.length}/><Kpi l="Contactos logrados" v={si} s="respuesta “Sí”"/><Kpi l="No logrados" v={no} s="respuesta “No”"/></div>
+    <div className="grid lg:grid-cols-2 gap-6"><div><h3 className="text-sm font-extrabold mb-2">Por centro</h3><Stack items={byC} keys={CTK}/>
+      <h3 className="text-sm font-extrabold mt-5 mb-2">Por mes</h3>{multiM?<Stack items={grp(v,r=>r.mes+' '+r.y,pf).sort((a,b)=>a.per-b.per)} keys={CTK}/>:<Empty t="Un solo mes en la selección."/>}
+      <h3 className="text-sm font-extrabold mt-5 mb-2">Por habilidad</h3>{sks?<Stack items={grp(v,r=>r.sk,pf)} keys={CTK}/>:<Empty t="La habilidad no está informada o es una sola."/>}</div>
+    <div><h3 className="text-sm font-extrabold mb-1">Motivos de contacto fallido</h3><p className="text-xs text-slate-500 mb-2">Solo respuestas “No” con motivo informado (n={nm}).</p><Rank items={mot} total={nm} color="#FF3F00"/></div></div></div>;
+}
+const COLS=[['y','Año'],['per','Mes'],['cen','Centro'],['sk','Habilidad'],['cts','Contacto'],['evl','Evaluación'],['co','Comentario'],['as','Aspecto'],['me','Oportunidad de mejora']];
+function Detalle({rows,tema,setTema,asp,setAsp}){
+  const [q,setQ]=useState(''),[only,setOnly]=useState(true),[sort,setSort]=useState({k:'per',d:-1}),[pg,setPg]=useState(0),PS=25;
+  const data=useMemo(()=>{
+    let d=rows;if(only)d=d.filter(r=>r.co||r.me||r.evk);if(tema)d=d.filter(r=>temasDe(r).includes(tema));if(asp)d=d.filter(r=>r.as===asp);
+    if(q)d=d.filter(r=>norm(COLS.map(c=>c[0]==='per'?r.mes:r[c[0]]).join(' ')).includes(norm(q)));
+    return[...d].sort((a,b)=>{const x=a[sort.k],y=b[sort.k];return(typeof x==='number'?x-y:String(x).localeCompare(String(y),'es'))*sort.d});
+  },[rows,q,only,tema,asp,sort]);
+  const last=Math.max(0,Math.ceil(data.length/PS)-1),p=Math.min(pg,last),page=data.slice(p*PS,p*PS+PS);
+  return <div className="card p-5"><div className="flex flex-wrap items-center justify-between gap-3 mb-4"><Title sub="Respuestas tal como llegan en la fuente; no incluye identificadores de llamada o caso.">Detalle de respuestas</Title>
+    <div className="flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 text-sm font-semibold text-slate-600"><input type="checkbox" checked={only} onChange={e=>setOnly(e.target.checked)} className="accent-[#005bfd] w-4 h-4"/>Solo con evaluación o comentario</label><input value={q} onChange={e=>{setQ(e.target.value);setPg(0)}} placeholder="Buscar en el detalle" aria-label="Buscar en el detalle" className="h-10 w-56 rounded-xl border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-entel/40"/></div></div>
+    {(tema||asp)&&<div className="flex flex-wrap gap-2 mb-3 text-sm">{tema&&<button onClick={()=>setTema('')} className="px-3 py-1 rounded-full bg-entel/10 text-entel font-semibold">Tema: {tema} ✕</button>}{asp&&<button onClick={()=>setAsp('')} className="px-3 py-1 rounded-full bg-entel/10 text-entel font-semibold">Aspecto: {asp} ✕</button>}</div>}
+    <div className="overflow-auto max-h-[34rem] rounded-xl border border-slate-100"><table className="w-full text-sm"><thead className="sticky top-0 bg-slate-50 z-10"><tr>{COLS.map(([k,l])=><th key={k} onClick={()=>{setSort(s=>({k,d:s.k===k?-s.d:1}));setPg(0)}} aria-sort={sort.k===k?(sort.d>0?'ascending':'descending'):'none'} className="py-2.5 px-3 text-left text-xs font-semibold text-slate-500 cursor-pointer select-none hover:text-entel">{l}{sort.k===k?(sort.d>0?' ↑':' ↓'):''}</th>)}</tr></thead>
+    <tbody>{page.map((r,i)=><tr key={i} className="border-t border-slate-100 align-top hover:bg-slate-50/70"><td className="py-2 px-3">{r.y}</td><td className="py-2 px-3 whitespace-nowrap">{r.mes}</td><td className="py-2 px-3 whitespace-nowrap">{r.cen}</td><td className="py-2 px-3 whitespace-nowrap">{r.sk}</td><td className="py-2 px-3">{r.cts}</td><td className="py-2 px-3 whitespace-nowrap"><EvDot k={r.evk} l={r.evl}/></td><td className="py-2 px-3 min-w-[16rem]">{r.co||'—'}</td><td className="py-2 px-3 whitespace-nowrap">{r.as||'—'}</td><td className="py-2 px-3 min-w-[16rem]">{r.me||'—'}</td></tr>)}
+    {!page.length&&<tr><td colSpan={9} className="py-8 text-center text-slate-500">Sin coincidencias. Prueba quitando filtros o cambiando la búsqueda.</td></tr>}</tbody></table></div>
+    <div className="flex items-center justify-between mt-3 text-xs text-slate-500"><span>{data.length} filas · página {p+1} de {last+1}</span><span className="flex gap-2"><button disabled={p===0} onClick={()=>setPg(p-1)} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40">Anterior</button><button disabled={p>=last} onClick={()=>setPg(p+1)} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40">Siguiente</button></span></div></div>;
+}
+
+/* ====== 6. APP ====== */
+const F0={y:'',m:'',c:'',sk:'',ct:'',ev:''};
+function App(){
+  const [rows,setRows]=useState([]),[st,setSt]=useState('load'),[err,setErr]=useState(''),[at,setAt]=useState(null),[f,setF]=useState(F0),[tema,setTema]=useState(''),[asp,setAsp]=useState('');
+  useEffect(()=>{let stop=false;const pull=async()=>{try{const r=await fetch(CSV_URL+'&t='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);const d=parseSheet(parseCSV(await r.text()));if(!stop){setRows(d);setSt('ok');setAt(new Date());setErr('')}}catch(e){if(!stop){setSt(s=>s==='ok'?s:'error');setErr(e.message)}}};pull();const id=setInterval(pull,300000);return()=>{stop=true;clearInterval(id)}},[]);
+  const set=k=>v=>setF(o=>({...o,[k]:v}));
+  const O={y:uniq(rows,r=>String(r.y)).sort().map(x=>[x,x]),m:[...new Map(rows.slice().sort((a,b)=>a.per-b.per).map(r=>[r.mes,r.mes]))],c:uniq(rows,r=>r.cen).sort().map(x=>[x,x]),sk:uniq(rows,r=>r.sk).sort().map(x=>[x,x]),
+    ct:[['SI','Sí'],['NO','No'],...(rows.some(r=>!r.ctn)?[['sin','Sin resultado válido']]:[])],ev:[...EVK.map(e=>[e[0],e[1]]),['sin','Sin evaluación']]};
+  const fr=useMemo(()=>rows.filter(r=>(!f.y||String(r.y)===f.y)&&(!f.m||r.mes===f.m)&&(!f.c||r.cen===f.c)&&(!f.sk||r.sk===f.sk)&&(!f.ct||(r.ctn||'sin')===f.ct)&&(!f.ev||(r.evk||'sin')===f.ev)),[rows,f]);
+  const Q=useMemo(()=>{const seen=new Set();let dup=0;rows.forEach(r=>{seen.has(r.raw)?dup++:seen.add(r.raw)});
+    return{ctBad:rows.filter(r=>r.ctn==='SI'&&r.mo).length,noResp:rows.filter(r=>r.evk&&TEMAS[0][1].test(norm(r.co))).length,evUnk:rows.filter(r=>r.ev&&!r.evk).length,ctUnk:rows.filter(r=>r.ct&&!r.ctn).length,dup}},[rows]);
+  const cv=fr.filter(r=>r.ctn),ev=fr.filter(r=>r.evk),nOp=fr.filter(r=>r.as||r.me).length,any=Object.values(f).some(Boolean);
+  const nq=Q.ctBad+Q.noResp+Q.evUnk+Q.ctUnk;
+  return <div className="min-h-screen">
+    <header className="bg-entel text-white"><div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-6"><h1 className="text-2xl font-extrabold tracking-tight">Sistema CX</h1><nav className="flex gap-1 text-sm font-bold"><a href={MAIN_URL} className="px-3 py-1.5 rounded-lg text-white/80 hover:bg-white/10">Resultados</a><a href="voz-del-cliente.html" aria-current="page" className="px-3 py-1.5 rounded-lg bg-white/15">Voz del Cliente</a></nav></div>
+      <div className="text-xs text-white/85">{st==='ok'?'Datos cargados a las '+at.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}):st==='load'?'Cargando datos…':'Sin conexión'}</div></div>
+      <div className="h-1 bg-gradient-to-r from-[#00fdaa] via-[#005bfd] to-[#fd3d01] opacity-90"/></header>
+    <main className="max-w-7xl mx-auto px-5 py-5 space-y-5">
+      <div><h2 className="text-2xl font-extrabold tracking-tight">Voz del Cliente</h2><p className="text-slate-500">Análisis de la experiencia y oportunidades de mejora identificadas en callback</p></div>
+      {err&&<div role="alert" className="rounded-xl px-4 py-3 text-sm font-semibold" style={{background:'#ffece6',color:'#c73000'}}>{st==='error'?'No se pudieron leer los datos: ':'No se pudo actualizar: '}{err}</div>}
+      {st==='load'&&<Empty t="Cargando respuestas…"/>}
+      {st==='ok'&&<>
+      <div className="card p-4 flex flex-wrap items-end gap-3 sticky top-0 z-20">
+        <Sel label="Año" v={f.y} set={set('y')} opts={O.y}/><Sel label="Mes" v={f.m} set={set('m')} opts={O.m}/><Sel label="Centro" v={f.c} set={set('c')} opts={O.c}/><Sel label="Habilidad" v={f.sk} set={set('sk')} opts={O.sk}/><Sel label="Contacto" v={f.ct} set={set('ct')} opts={O.ct}/><Sel label="Evaluación" v={f.ev} set={set('ev')} opts={O.ev}/>
+        <button onClick={()=>{setF(F0);setTema('');setAsp('')}} disabled={!any&&!tema&&!asp} className="h-10 px-4 rounded-xl text-sm font-bold text-entel border border-entel/30 hover:bg-entel/5 disabled:opacity-40">Restablecer filtros</button></div>
+      {!fr.length?<div className="card p-5"><Empty t="Ningún registro coincide con los filtros. Restablécelos para ver todos los datos."/></div>:<>
+      <section className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+        <Kpi l="Respuestas registradas" v={fr.length.toLocaleString('es-PE')} s="registros en la selección"/>
+        <Kpi l="Contacto efectivo" v={fp(pc(cv.filter(r=>r.ctn==='SI').length,cv.length))} s={cv.filter(r=>r.ctn==='SI').length+' de '+cv.length+' con resultado válido'}/>
+        <Kpi l="Experiencias positivas" v={fp(pc(ev.filter(r=>r.evk==='pos').length,ev.length))} s={ev.filter(r=>r.evk==='pos').length+' de '+ev.length+' evaluaciones válidas'}/>
+        <Kpi l="Experiencias negativas" v={fp(pc(ev.filter(r=>r.evk==='neg').length,ev.length))} s={ev.filter(r=>r.evk==='neg').length+' de '+ev.length+' evaluaciones válidas'}/>
+        <Kpi l="Oportunidades identificadas" v={nOp.toLocaleString('es-PE')} s="respuestas con aspecto o mejora"/></section>
+      <Sentimiento rows={fr}/><Comentarios rows={fr} tema={tema} setTema={setTema}/><Oportunidades rows={fr} asp={asp} setAsp={setAsp}/><Contacto rows={fr}/><Detalle rows={fr} tema={tema} setTema={setTema} asp={asp} setAsp={setAsp}/></>}
+      <details className="card p-5 text-sm text-slate-600"><summary className="cursor-pointer font-extrabold text-slate-900">Calidad de datos y metodología{nq>0&&<span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full" style={{background:'#fff3d6',color:'#946c00'}}>{nq} observaciones</span>}</summary>
+        <ul className="list-disc pl-5 mt-3 space-y-1.5 max-w-3xl">
+          {Q.noResp>0&&<li><b>{Q.noResp}</b> respuestas tienen evaluación, pero el comentario indica que el cliente no respondió, colgó o no pudo hablar. Se muestran tal como están en la fuente; conviene revisar si deben evaluarse.</li>}
+          {Q.ctBad>0&&<li><b>{Q.ctBad}</b> registros dicen “Sí” en contacto pero traen motivo de contacto fallido. No se reclasifican ni entran en el análisis de motivos (solo cuenta “No” con motivo).</li>}
+          {Q.evUnk>0&&<li><b>{Q.evUnk}</b> evaluaciones con valor no reconocido; quedan fuera de los porcentajes.</li>}
+          {Q.ctUnk>0&&<li><b>{Q.ctUnk}</b> resultados de contacto no reconocidos; quedan fuera de la tasa.</li>}
+          <li>Habilidad sin informar: {rows.filter(r=>r.sk==='Sin informar').length} de {rows.length} registros.</li>
+          <li>{Q.dup} filas idénticas a otra. No se eliminan: pueden ser respuestas distintas con el mismo texto.</li>
+          <li>Evaluaciones reconocidas: Positiva, Neutra y Negativa. Un porcentaje sin respuestas válidas se muestra como “Sin datos”, no como 0%.</li>
+          <li>Se cuentan respuestas (menciones), no clientes únicos. La fuente solo trae año y mes.</li></ul></details>
+      </>}
+    </main></div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
