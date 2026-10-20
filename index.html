@@ -257,10 +257,15 @@ function App(){
   const fRows=useMemo(()=>rows.filter(r=>match(r,f)),[rows,f]);
   const cmpRows=useMemo(()=>rows.filter(r=>match(r,f,['c','t'])),[rows,f]);
   const any=Object.values(f).some(Boolean);
-  return <div className="min-h-screen">
-    <header className="bg-entel text-white"><div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
-      <h1 className="text-2xl font-extrabold tracking-tight">Sistema CX</h1>
-<div className="flex flex-col items-end leading-tight text-right">
+ <header className="bg-entel text-white"><div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
+  <div className="flex items-center gap-6">
+    <h1 className="text-2xl font-extrabold tracking-tight">Sistema CX</h1>
+    <nav className="flex gap-1 text-sm font-bold">
+      <a href="index.html" aria-current="page" className="px-3 py-1.5 rounded-lg bg-white/15">Resultados</a>
+      <a href="voz-del-cliente.html" className="px-3 py-1.5 rounded-lg text-white/80 hover:bg-white/10">Voz del Cliente</a>
+    </nav>
+  </div>
+  <div className="flex flex-col items-end leading-tight text-right">
   {baseUpd&&<div className="text-sm sm:text-base font-extrabold tracking-wide">Actualizado al: {baseUpd}</div>}
   <div className="flex items-center gap-2 text-xs text-white/80" title="Se actualiza sola desde Google Sheets cada 5 minutos"><i className="w-2 h-2 rounded-full inline-block" style={{background:status==='vivo'?'#00fdaa':'#f5b700'}}/>{status==='vivo'?'En vivo · '+upd.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}):status==='cargando'?'Conectando…':'Sin conexión'}</div>
 </div></div>      <div className="h-1 bg-gradient-to-r from-[#00fdaa] via-[#005bfd] to-[#fd3d01] opacity-90"/></header>
