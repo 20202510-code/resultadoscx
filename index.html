@@ -256,8 +256,9 @@ function App(){
   const opt={y:uniq(rows,r=>String(r.y)).sort(),m:ord(uniq(rows,r=>r.m)),c:uniq(rows,r=>r.c).sort(),h:uniq(rows.filter(r=>!f.c||r.c===f.c),r=>r.h).sort(),sup:uniq(rows.filter(r=>!f.c||r.c===f.c),r=>r.sup).sort(),t:TIPOS.filter(t=>rows.some(r=>r.t===t))};
   const fRows=useMemo(()=>rows.filter(r=>match(r,f)),[rows,f]);
   const cmpRows=useMemo(()=>rows.filter(r=>match(r,f,['c','t'])),[rows,f]);
-  const any=Object.values(f).some(Boolean);
- <header className="bg-entel text-white"><div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
+   const any=Object.values(f).some(Boolean);
+  return <div className="min-h-screen">
+    <header className="bg-entel text-white"><div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
   <div className="flex items-center gap-6">
     <h1 className="text-2xl font-extrabold tracking-tight">Sistema CX</h1>
     <nav className="flex gap-1 text-sm font-bold">
